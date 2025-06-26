@@ -19,19 +19,17 @@ def get_db():
 
 dbDepend = Annotated[Session, Depends(get_db)]
 # userdepend = Annotated[Staff, Depends(get_current_user)]
-# --- Pydantic Schemas ---
 
+# --- Pydantic Schemas ---
 class RoleSchema(BaseModel):
     name: str = Field(..., min_length=1, example="Manager")
     description: str | None = Field(None, example="Handles staff and operations")
-
 class RoleResponse(RoleSchema):
     id: int
     is_active: bool
     
     class Config:
         from_attributes = True
-
 class RoleWithCount(RoleResponse):
     staff_count: int
 
@@ -73,7 +71,7 @@ async def get_inactive_roles(db: dbDepend):#, user: userdepend
 
 @router.get("/{role_id}", status_code=status.HTTP_200_OK, summary="Get role by ID")
 async def get_role_by_id(db: dbDepend, role_id: Annotated[int, Path(..., gt=0)]):#, user: userdepend
-    """Retrieve a payment by its ID."""
+    """Retrieve a role by its ID."""
     role = db.query(Role).filter(Role.id == role_id, Role.is_active == True).first()
     if not role:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
