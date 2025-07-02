@@ -4,7 +4,7 @@ from model_folder.model import Product, Staff
 from database import SessionLocal
 from typing import Annotated, Literal, List
 from pydantic import BaseModel, Field
-# from util.auth import get_current_user
+from util.auth import get_current_user
 
 # Dependencies
 def get_db():
@@ -16,7 +16,7 @@ def get_db():
 
 router = APIRouter()
 dbDepend = Annotated[Session, Depends(get_db)]
-# userDepend = Annotated[Staff, Depends(get_current_user)]
+userDepend = Annotated[Staff, Depends(get_current_user)]
 
 # --- Pydantic Schemas ---
 class ProductCreate(BaseModel):
@@ -47,7 +47,7 @@ class ProductResponse(BaseModel):
 
 # --- FastAPI Router ---
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=ProductResponse, summary="Create new product")
-async def create_product(db: dbDepend, prod: ProductCreate):
+async def create_product(db: dbDepend, prod: ProductCreate, user: userDepend):
     """Add a new product with default status 'Available'."""
     new_prod = Product(**prod.model_dump(), status="Available")
     db.add(new_prod)
@@ -59,7 +59,7 @@ async def create_product(db: dbDepend, prod: ProductCreate):
     }
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=List[ProductResponse], summary="Get all available products")
-async def get_all_available_products(db: dbDepend):
+async def get_all_available_products(db: dbDepend, user: userDepend):
     """Retrieve all available products."""
     products = db.query(Product).options(joinedload(Product.category)).filter(Product.status == "Available").order_by(Product.id).all()
     return [
@@ -68,7 +68,7 @@ async def get_all_available_products(db: dbDepend):
     ]
 
 @router.get("/unavailable", status_code=status.HTTP_200_OK, response_model=List[ProductResponse], summary="Get all unavailable products")
-async def get_all_unavailable_products(db: dbDepend):
+async def get_all_unavailable_products(db: dbDepend, user: userDepend):
     """Retrieve all unavailable products."""
     products = db.query(Product).options(joinedload(Product.category)).filter(Product.status == "Unavailable").order_by(Product.id).all()
     return [
@@ -77,7 +77,7 @@ async def get_all_unavailable_products(db: dbDepend):
     ]
 
 @router.get("/{prod_id}", status_code=status.HTTP_200_OK, response_model=ProductResponse, summary="Get product by ID")
-async def get_product_by_id(db: dbDepend, prod_id: Annotated[int, Path(gt=0)]):
+async def get_product_by_id(db: dbDepend, prod_id: Annotated[int, Path(gt=0)], user: userDepend):
     """Retrieve a product by its ID."""
     prod = db.query(Product).options(joinedload(Product.category)).filter(Product.id == prod_id).first()
     if not prod:
@@ -88,7 +88,7 @@ async def get_product_by_id(db: dbDepend, prod_id: Annotated[int, Path(gt=0)]):
     }
 
 @router.put("/{prod_id}", status_code=status.HTTP_200_OK, response_model=ProductResponse, summary="Update product")
-async def update_product(db: dbDepend, prod_id: Annotated[int, Path(gt=0)], prod_req: ProductUpdate):
+async def update_product(db: dbDepend, prod_id: Annotated[int, Path(gt=0)], prod_req: ProductUpdate, user: userDepend):
     """Update product details including status."""
     prod = db.query(Product).options(joinedload(Product.category)).filter(Product.id == prod_id).first()
     if not prod:
@@ -103,7 +103,7 @@ async def update_product(db: dbDepend, prod_id: Annotated[int, Path(gt=0)], prod
     }
 
 @router.patch("/{prod_id}/deactivate", status_code=status.HTTP_200_OK, response_model=ProductResponse, summary="Deactivate product")
-async def deactivate_product(db: dbDepend, prod_id: Annotated[int, Path(gt=0)]):
+async def deactivate_product(db: dbDepend, prod_id: Annotated[int, Path(gt=0)], user: userDepend):
     """Mark a product as Unavailable."""
     prod = db.query(Product).options(joinedload(Product.category)).filter(Product.id == prod_id, Product.status == "Available").first()
     if not prod:
@@ -117,7 +117,7 @@ async def deactivate_product(db: dbDepend, prod_id: Annotated[int, Path(gt=0)]):
     }
 
 @router.patch("/{prod_id}/reactivate", status_code=status.HTTP_200_OK, response_model=ProductResponse, summary="Reactivate product")
-async def reactivate_product(db: dbDepend, prod_id: Annotated[int, Path(gt=0)]):
+async def reactivate_product(db: dbDepend, prod_id: Annotated[int, Path(gt=0)], user: userDepend):
     """Mark a previously unavailable product as Available."""
     prod = db.query(Product).options(joinedload(Product.category)).filter(Product.id == prod_id, Product.status == "Unavailable").first()
     if not prod:

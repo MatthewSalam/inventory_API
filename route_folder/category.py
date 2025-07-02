@@ -4,7 +4,7 @@ from model_folder.model import Category, Staff
 from database import SessionLocal
 from typing import Annotated, List
 from pydantic import BaseModel, Field
-# from util.auth import get_current_user
+from util.auth import get_current_user
 
 #Dependecies
 
@@ -17,7 +17,7 @@ def get_db():
 router = APIRouter()
 
 dbDepend = Annotated[Session, Depends(get_db)]
-# userDepend = Annotated[Staff, Depends(get_current_user)]
+userDepend = Annotated[Staff, Depends(get_current_user)]
 
 
 # --- Pydantic Schemas ---
@@ -38,7 +38,7 @@ class CategoryResponse(BaseModel):
 
 # --- FastAPI Router ---
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=CategoryResponse, summary="Create new category")
-async def create_category(db: dbDepend, cate: CategoryCreate):
+async def create_category(db: dbDepend, cate: CategoryCreate, user: userDepend):
     """Add a new category entry."""
     new_cate = Category(**cate.dict(), is_active=True)
     db.add(new_cate)
@@ -53,7 +53,7 @@ async def create_category(db: dbDepend, cate: CategoryCreate):
     )
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=List[CategoryResponse], summary="All active categories")
-async def get_all_active_categories(db: dbDepend):
+async def get_all_active_categories(db: dbDepend, user: userDepend):
     """Retrieve all active (non-deleted) categories."""
     categories = db.query(Category).options(joinedload(Category.products)).filter(Category.is_active == True).order_by(Category.id).all()
     return [
@@ -68,7 +68,7 @@ async def get_all_active_categories(db: dbDepend):
     ]
 
 @router.get("/deleted", status_code=status.HTTP_200_OK, response_model=List[CategoryResponse],summary="All inactive category")
-async def get_all_inactive_categories(db: dbDepend):
+async def get_all_inactive_categories(db: dbDepend, user: userDepend):
     """Retrieve all inactive (soft-deleted) categories."""
     categories = db.query(Category).options(joinedload(Category.products)).filter(Category.is_active == False).order_by(Category.id).all()
     return [
@@ -83,7 +83,7 @@ async def get_all_inactive_categories(db: dbDepend):
     ]
 
 @router.get("/{cate_id}", status_code=status.HTTP_200_OK, response_model=CategoryResponse, summary="Get category by id")
-async def get_category_by_id(db: dbDepend, cate_id: Annotated[int, Path(gt=0)]):
+async def get_category_by_id(db: dbDepend, cate_id: Annotated[int, Path(gt=0)], user: userDepend):
     """Retrieve a category by its ID."""
     category = db.query(Category).options(joinedload(Category.products)).filter(Category.id == cate_id).first()
     if category is None:
@@ -97,7 +97,7 @@ async def get_category_by_id(db: dbDepend, cate_id: Annotated[int, Path(gt=0)]):
     )
 
 @router.put("/{cate_id}", status_code=status.HTTP_200_OK, response_model=CategoryResponse, summary="Update category")
-async def update_category(db: dbDepend, cate_id: Annotated[int, Path(..., gt=0)], cate_req: CategoryCreate):
+async def update_category(db: dbDepend, cate_id: Annotated[int, Path(..., gt=0)], cate_req: CategoryCreate, user: userDepend):
     """Update a Category."""
     cat = db.query(Category).filter(Category.id == cate_id).first()
     if not cat:
@@ -115,7 +115,7 @@ async def update_category(db: dbDepend, cate_id: Annotated[int, Path(..., gt=0)]
     )
 
 @router.patch("/{cate_id}/deactivate", status_code=status.HTTP_200_OK, response_model=CategoryResponse, summary="Deactivate category")
-async def deactivate_category(db: dbDepend, cate_id: Annotated[int, Path(gt=0)]):
+async def deactivate_category(db: dbDepend, cate_id: Annotated[int, Path(gt=0)], user: userDepend):
     """Soft delete (deactivate) a category."""
     cat = db.query(Category).filter(Category.id == cate_id).first()
     if not cat:
@@ -132,7 +132,7 @@ async def deactivate_category(db: dbDepend, cate_id: Annotated[int, Path(gt=0)])
     )
 
 @router.patch("/{cate_id}/reactivate", status_code=status.HTTP_200_OK, response_model=CategoryResponse, summary="Reactivate category")
-async def reactivate_category(db: dbDepend, cate_id: Annotated[int, Path(gt=0)]):
+async def reactivate_category(db: dbDepend, cate_id: Annotated[int, Path(gt=0)], user: userDepend):
     """Reactivate a previously soft-deleted category."""
     cat = db.query(Category).filter(Category.id == cate_id).first()
     if not cat:

@@ -17,7 +17,7 @@ def get_db():
 
 router = APIRouter()
 dbDepend = Annotated[Session, Depends(get_db)]
-# userdepend = Annotated[Staff, Depends(get_current_user)]
+userDepend = Annotated[Staff, Depends(get_current_user)]
 
 # --- Pydantic Schemas ---
 
@@ -40,7 +40,7 @@ class StaffResponse(StaffCreate):
 
 # --- FastAPI Router ---
 @router.post("/register", status_code=status.HTTP_201_CREATED, response_model=StaffResponse, summary="Register new staff member")
-async def create_staff_member(db: dbDepend, staff: StaffCreate):
+async def create_staff_member(db: dbDepend, staff: StaffCreate, user: userDepend):
     """Register a new staff member with the system."""
     existing_staff = db.query(Staff).filter((Staff.username == staff.username) | (Staff.email == staff.email)).first()
     if existing_staff:
@@ -54,19 +54,19 @@ async def create_staff_member(db: dbDepend, staff: StaffCreate):
     return new_staff
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=List[StaffResponse], summary="Get all active staff members")
-async def get_active_staff(db: dbDepend,): #user: userdepend):
+async def get_active_staff(db: dbDepend, user: userDepend):#
     """Retrieve a list of all active staff members."""
     result = db.query(Staff).filter(Staff.is_active == True).order_by(Staff.id).all()
     return result
 
 @router.get("/deleted", status_code=status.HTTP_200_OK, response_model=List[StaffResponse], summary="Get all inactive staff members")
-async def get_inactive_staff(db: dbDepend):#, user: userdepend
+async def get_inactive_staff(db: dbDepend, user: userDepend):#
     """Retrieve a list of all inactive (deleted) staff members."""
     result = db.query(Staff).filter(Staff.is_active == False).order_by(Staff.id).all()
     return result
 
 @router.get("/{staff_id}", status_code=status.HTTP_200_OK, response_model=StaffResponse, summary="Get staff by ID")
-async def get_staff_by_id(db: dbDepend, staff_id: Annotated[int, Path(..., gt=0, example=1)]):#, user: userdepend
+async def get_staff_by_id(db: dbDepend, staff_id: Annotated[int, Path(..., gt=0, example=1)], user: userDepend):#
     """Retrieve a specific staff member by their ID."""
     staff = db.query(Staff).filter(Staff.id == staff_id).first()
     if not staff:
@@ -74,7 +74,7 @@ async def get_staff_by_id(db: dbDepend, staff_id: Annotated[int, Path(..., gt=0,
     return staff
 
 @router.put("/{staff_id}", status_code=status.HTTP_200_OK, response_model=StaffResponse, summary="Update staff member")
-async def update_staff(db: dbDepend, staff_id: Annotated[int, Path(..., gt=0)], staff_req: StaffCreate):#, user: userdepend
+async def update_staff(db: dbDepend, staff_id: Annotated[int, Path(..., gt=0)], staff_req: StaffCreate, user: userDepend):#
     """Update a staff member's details."""
     staff = db.query(Staff).filter(Staff.id == staff_id).first()
     if not staff:
@@ -90,7 +90,7 @@ async def update_staff(db: dbDepend, staff_id: Annotated[int, Path(..., gt=0)], 
     return staff
 
 @router.patch("/{staff_id}/deactivate", status_code=status.HTTP_200_OK, response_model=StaffResponse, summary="Deactivate staff member")
-async def deactivate_staff(db: dbDepend, staff_id: Annotated[int, Path(..., gt=0)]):#, user: userdepend
+async def deactivate_staff(db: dbDepend, staff_id: Annotated[int, Path(..., gt=0)], user: userDepend):#
     """Deactivate a staff member (mark as deleted)."""
     staff = db.query(Staff).filter(Staff.id == staff_id).first()
     if not staff:
@@ -101,7 +101,7 @@ async def deactivate_staff(db: dbDepend, staff_id: Annotated[int, Path(..., gt=0
     return staff
 
 @router.patch("/{staff_id}/reactivate", status_code=status.HTTP_200_OK, response_model=StaffResponse, summary="Reactivate staff member")
-async def reactivate_staff(db: dbDepend, staff_id: Annotated[int, Path(..., gt=0)]):#, user: userdepend
+async def reactivate_staff(db: dbDepend, staff_id: Annotated[int, Path(..., gt=0)], user: userDepend):#
     """Reactivate a previously deactivated staff member."""
     staff = db.query(Staff).filter(Staff.id == staff_id).first()
     if not staff:

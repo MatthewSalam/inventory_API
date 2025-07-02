@@ -5,7 +5,7 @@ from typing import Annotated, List
 from pydantic import BaseModel, Field
 from model_folder.model import Role, Staff
 from database import SessionLocal
-# from util.auth import get_current_user
+from util.auth import get_current_user
 
 #Dependecies 
 router = APIRouter()
@@ -18,7 +18,7 @@ def get_db():
         db.close()
 
 dbDepend = Annotated[Session, Depends(get_db)]
-# userdepend = Annotated[Staff, Depends(get_current_user)]
+userdepend = Annotated[Staff, Depends(get_current_user)]
 
 # --- Pydantic Schemas ---
 class RoleSchema(BaseModel):
@@ -36,7 +36,7 @@ class RoleWithCount(RoleResponse):
 
 # --- FastAPI Router ---
 @router.post("/", status_code=status.HTTP_201_CREATED, summary="Create new role")
-async def create_role(db: dbDepend, role: RoleSchema):#, user: userdepend
+async def create_role(db: dbDepend, role: RoleSchema, user: userdepend):
     """Add a new role."""
     new_role = Role(**role.model_dump(), is_active=True)
     db.add(new_role)
@@ -45,7 +45,7 @@ async def create_role(db: dbDepend, role: RoleSchema):#, user: userdepend
     return new_role
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=List[RoleWithCount], summary="Get all active roles")
-async def get_roles(db: dbDepend):#, user: userdepend
+async def get_roles(db: dbDepend, user: userdepend):#
     """Retrieve all active (non-deleted) payments."""
     roles = (db.query(Role).options(joinedload(Role.staff)).filter(Role.is_active == True).all())
     
@@ -58,7 +58,7 @@ async def get_roles(db: dbDepend):#, user: userdepend
     return result
 
 @router.get("/inactive", status_code=status.HTTP_200_OK, response_model=List[RoleWithCount], summary="All inactive roles")
-async def get_inactive_roles(db: dbDepend):#, user: userdepend
+async def get_inactive_roles(db: dbDepend, user: userdepend):#
     """Retrieve all inactive (soft-deleted) roles."""
     roles = db.query(Role).options(joinedload(Role.staff)).filter(Role.is_active == False).all()
 
@@ -70,7 +70,7 @@ async def get_inactive_roles(db: dbDepend):#, user: userdepend
     return result
 
 @router.get("/{role_id}", status_code=status.HTTP_200_OK, summary="Get role by ID")
-async def get_role_by_id(db: dbDepend, role_id: Annotated[int, Path(..., gt=0)]):#, user: userdepend
+async def get_role_by_id(db: dbDepend, role_id: Annotated[int, Path(..., gt=0)], user: userdepend):#
     """Retrieve a role by its ID."""
     role = db.query(Role).filter(Role.id == role_id, Role.is_active == True).first()
     if not role:
@@ -78,7 +78,7 @@ async def get_role_by_id(db: dbDepend, role_id: Annotated[int, Path(..., gt=0)])
     return role
 
 @router.put("/{role_id}", status_code=status.HTTP_200_OK,summary="Update role")
-async def update_role(db: dbDepend, role_id: Annotated[int, Path(..., gt=0)], role_req: RoleSchema):#, user: userdepend):
+async def update_role(db: dbDepend, role_id: Annotated[int, Path(..., gt=0)], role_req: RoleSchema, user: userdepend):#
     """Update role info."""
     role = db.query(Role).filter(Role.id == role_id, Role.is_active == True).first()
     if not role:
@@ -90,7 +90,7 @@ async def update_role(db: dbDepend, role_id: Annotated[int, Path(..., gt=0)], ro
     return role
 
 @router.patch("/{role_id}/deactivate", status_code=status.HTTP_200_OK,summary="Deactivate role")
-async def deactivate_role(db: dbDepend, role_id: Annotated[int, Path(..., gt=0)]):#, user: userdepend
+async def deactivate_role(db: dbDepend, role_id: Annotated[int, Path(..., gt=0)], user: userdepend):#
     """Soft delete (deactivate) a role."""
     role = db.query(Role).filter(Role.id == role_id, Role.is_active == True).first()
     if not role:
@@ -101,7 +101,7 @@ async def deactivate_role(db: dbDepend, role_id: Annotated[int, Path(..., gt=0)]
     return "Deactivated successfully"
 
 @router.patch("/{role_id}/reactivate", status_code=status.HTTP_200_OK, summary="Reactivate role")
-async def reactivate_role(db: dbDepend, role_id: Annotated[int, Path(..., gt=0)]):#, user: userdepend
+async def reactivate_role(db: dbDepend, role_id: Annotated[int, Path(..., gt=0)], user: userdepend):#
     """Reactivate a previously soft-deleted role."""
     role = db.query(Role).filter(Role.id == role_id, Role.is_active == False).first()
     if not role:

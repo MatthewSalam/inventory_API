@@ -4,7 +4,7 @@ from model_folder.model import Payment, Staff
 from database import SessionLocal
 from typing import Annotated, Literal, List
 from pydantic import BaseModel, Field
-# from util.auth import get_current_user
+from util.auth import get_current_user
 
 #Dependecies
 def get_db():
@@ -16,7 +16,7 @@ def get_db():
 
 router = APIRouter()
 dbDepend = Annotated[Session, Depends(get_db)]
-# userDepend = Annotated[Staff, Depends(get_current_user)]
+userDepend = Annotated[Staff, Depends(get_current_user)]
 
 # --- Pydantic Schemas ---
 class PaymentCreate(BaseModel):
@@ -34,7 +34,7 @@ class PaymentResponse(BaseModel):
 
 # --- FastAPI Router ---
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=PaymentResponse, summary="Create new payment type")
-async def add_payment_info(db: dbDepend, pay: PaymentCreate):
+async def add_payment_info(db: dbDepend, pay: PaymentCreate, user: userDepend):
     """Add a new payment entry."""
     new_pay = Payment(**pay.model_dump(), is_active=True)
     db.add(new_pay)
@@ -43,18 +43,18 @@ async def add_payment_info(db: dbDepend, pay: PaymentCreate):
     return new_pay
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=List[PaymentResponse], summary="Get all available payment types")
-async def get_all_active_payments(db: dbDepend):
+async def get_all_active_payments(db: dbDepend, user: userDepend):
     """Retrieve all active (non-deleted) payments."""
     result =  db.query(Payment).filter(Payment.is_active == True).order_by(Payment.bill_number).all()
     return result
 
 @router.get("/deleted", status_code=status.HTTP_200_OK, response_model=List[PaymentResponse], summary="Get all unavailable payment types")
-async def get_all_inactive_payments(db: dbDepend):
+async def get_all_inactive_payments(db: dbDepend, user: userDepend):
     """Retrieve all inactive (soft-deleted) payments."""
     return db.query(Payment).filter(Payment.is_active == False).order_by(Payment.bill_number).all()
 
 @router.get("/{pay_id}", status_code=status.HTTP_200_OK, response_model=PaymentResponse, summary="Get payment type by ID")
-async def get_payment_by_id(db: dbDepend, pay_id: Annotated[int, Path(gt=0)]):
+async def get_payment_by_id(db: dbDepend, pay_id: Annotated[int, Path(gt=0)], user: userDepend):
     """Retrieve a payment by its bill number."""
     pay = db.query(Payment).filter(Payment.bill_number == pay_id).first()
     if not pay:
@@ -62,7 +62,7 @@ async def get_payment_by_id(db: dbDepend, pay_id: Annotated[int, Path(gt=0)]):
     return pay
 
 @router.put("/{pay_id}", status_code=status.HTTP_200_OK, response_model=PaymentResponse, summary="Update payment type")
-async def update_payment_info(db: dbDepend, pay_id: Annotated[int, Path(gt=0)], pay_req: PaymentCreate):
+async def update_payment_info(db: dbDepend, pay_id: Annotated[int, Path(gt=0)], pay_req: PaymentCreate, user: userDepend):
     """Update payment info."""
     pay = db.query(Payment).filter(Payment.bill_number == pay_id).first()
     if not pay:
@@ -74,7 +74,7 @@ async def update_payment_info(db: dbDepend, pay_id: Annotated[int, Path(gt=0)], 
     return pay
 
 @router.patch("/{pay_id}/deactivate", status_code=status.HTTP_200_OK, response_model=PaymentResponse, summary="Deactivate payment type")
-async def deactivate_payment(db: dbDepend, pay_id: Annotated[int, Path(gt=0)]):
+async def deactivate_payment(db: dbDepend, pay_id: Annotated[int, Path(gt=0)], user: userDepend):
     """Soft delete (deactivate) a payment."""
     pay = db.query(Payment).filter(Payment.bill_number == pay_id, Payment.is_active == True).first()
     if not pay:
@@ -85,7 +85,7 @@ async def deactivate_payment(db: dbDepend, pay_id: Annotated[int, Path(gt=0)]):
     return pay
 
 @router.patch("/{pay_id}/reactivate", status_code=status.HTTP_200_OK, response_model=PaymentResponse, summary="Reactivate payment type")
-async def reactivate_payment(db: dbDepend, pay_id: Annotated[int, Path(gt=0)]):
+async def reactivate_payment(db: dbDepend, pay_id: Annotated[int, Path(gt=0)], user: userDepend):
     """Reactivate a previously soft-deleted payment."""
     pay = db.query(Payment).filter(Payment.bill_number == pay_id, Payment.is_active == False).first()
     if not pay:

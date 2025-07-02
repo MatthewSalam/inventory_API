@@ -4,7 +4,7 @@ from model_folder.model import User, Staff
 from database import SessionLocal
 from typing import Annotated, List
 from pydantic import BaseModel, Field, EmailStr
-# from util.auth import get_current_user
+from util.auth import get_current_user
 
 
 #Dependecies
@@ -17,7 +17,7 @@ def get_db():
 
 router = APIRouter()
 dbDependency = Annotated[Session, Depends(get_db)]
-# userDepend = Annotated[Staff, Depends(get_current_user)]
+userDepend = Annotated[Staff, Depends(get_current_user)]
 
 
 # --- Pydantic Schemas ---
@@ -44,7 +44,7 @@ class UserResponse(BaseModel):
 # --- FastAPI Router ---
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=UserResponse, summary="Register new user")
-async def create_user(db: dbDependency, cust: UserCreate):
+async def create_user(db: dbDependency, cust: UserCreate, user: userDepend):
     """Register a new user with the system."""
     new_user = User(**cust.model_dump(), is_active=True)  # Active by default
     db.add(new_user)
@@ -53,7 +53,7 @@ async def create_user(db: dbDependency, cust: UserCreate):
     return new_user
 
 @router.get("/", status_code=status.HTTP_200_OK, summary="Get all active users")
-async def get_all_active_users(db: dbDependency):
+async def get_all_active_users(db: dbDependency, user: userDepend):
     """Retrieve a list of all active users"""
     users = db.query(User).options(joinedload(User.staff)).filter(User.is_active == True).order_by(User.id).all()
     return [
@@ -69,12 +69,12 @@ async def get_all_active_users(db: dbDependency):
     ]
 
 @router.get("/inactive", status_code=status.HTTP_200_OK, response_model=List[UserResponse], summary="Get all inactive users")
-async def get_all_inactive_users(db: dbDependency):
+async def get_all_inactive_users(db: dbDependency, user: userDepend):
     """Retrieve a list of all inactive (soft-deleted) users."""
     return db.query(User).filter(User.is_active == False).order_by(User.id).all()
 
 @router.get("/{user_id}", status_code=status.HTTP_200_OK, response_model=UserResponse, summary="Get user by ID")
-async def get_user_by_id(db: dbDependency, user_id: Annotated[int, Path(gt=0, example=1)]):
+async def get_user_by_id(db: dbDependency, user_id: Annotated[int, Path(gt=0, example=1)], user: userDepend):
     """Retrieve a user by their ID."""
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -82,7 +82,7 @@ async def get_user_by_id(db: dbDependency, user_id: Annotated[int, Path(gt=0, ex
     return user
 
 @router.put("/{user_id}", status_code=status.HTTP_200_OK, response_model=UserResponse, summary="Update user")
-async def update_user(db: dbDependency, cust_req: UserCreate, user_id: Annotated[int, Path(gt=0)]):
+async def update_user(db: dbDependency, cust_req: UserCreate, user_id: Annotated[int, Path(gt=0)], user: userDepend):
     """Update user details."""
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -96,7 +96,7 @@ async def update_user(db: dbDependency, cust_req: UserCreate, user_id: Annotated
     return user
 
 @router.patch("/{user_id}/deactivate", status_code=status.HTTP_200_OK, response_model=UserResponse, summary="Deactivate user")
-async def deactivate_user(db: dbDependency, user_id: Annotated[int, Path(gt=0)]):
+async def deactivate_user(db: dbDependency, user_id: Annotated[int, Path(gt=0)], user: userDepend):
     """Soft-delete a user by setting is_active to False."""
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -107,7 +107,7 @@ async def deactivate_user(db: dbDependency, user_id: Annotated[int, Path(gt=0)])
     return user
 
 @router.patch("/{user_id}/reactivate", status_code=status.HTTP_200_OK, response_model=UserResponse, summary="Reactivate user")
-async def reactivate_user(db: dbDependency, user_id: Annotated[int, Path(gt=0)]):
+async def reactivate_user(db: dbDependency, user_id: Annotated[int, Path(gt=0)], user: userDepend):
     """Reactivate a previously deactivated user."""
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
