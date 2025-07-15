@@ -46,8 +46,15 @@ async def create_supplier(supplier: SupplierBase, db: dbDepend, user: userDepend
 @router.get("/", status_code=status.HTTP_200_OK,response_model=List[SupplierOut], summary="Get all active suppliers")
 def get_active_suppliers(db: dbDepend, user: userDepend):
     """Retrieve all active (non-deleted) suppliers."""
-    result = db.query(Supplier).filter(Supplier.is_active == True).all()
-    return result
+    rows = db.query(Supplier).filter(Supplier.is_active == True).all()
+    # Convert phone to string
+    safe_rows = [
+        SupplierOut.model_validate(
+            {**row.__dict__, "phone": str(row.phone)}
+        )
+        for row in rows
+    ]
+    return safe_rows
 
 @router.get("/inactive", status_code=status.HTTP_200_OK, response_model=List[SupplierOut], summary="Get all inactive suppliers")
 def get_inactive_suppliers(db: dbDepend, user: userDepend):

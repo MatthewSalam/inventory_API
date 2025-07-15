@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 from sqlalchemy.orm import Session, joinedload
-from model_folder.model import Product, Staff
+from model_folder.model import Product, Staff, Supplier
 from database import SessionLocal
 from typing import Annotated, Literal, List
 from pydantic import BaseModel, Field
@@ -61,9 +61,9 @@ async def create_product(db: dbDepend, prod: ProductCreate, user: userDepend):
 @router.get("/", status_code=status.HTTP_200_OK, response_model=List[ProductResponse], summary="Get all available products")
 async def get_all_available_products(db: dbDepend, user: userDepend):
     """Retrieve all available products."""
-    products = db.query(Product).options(joinedload(Product.category)).filter(Product.status == "Available").order_by(Product.id).all()
+    products = db.query(Product).options(joinedload(Product.category), joinedload(Product.supplier)).filter(Product.status == "Available").order_by(Product.id).all()
     return [
-        {**prod.__dict__, "category_name": prod.category.name}
+        {**prod.__dict__, "category_name": prod.category.name, "supplier_name": prod.supplier.name if prod.supplier else "None"}
         for prod in products
     ]
 

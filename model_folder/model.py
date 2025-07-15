@@ -79,7 +79,6 @@ class Product(Base):
     name = Column(String)
     desc = Column(String)
     unit = Column(Integer)
-    # is_active = Column(Boolean, default=True)
     other_details = Column(String)
     price = Column(Float)
     cat_id = Column(Integer, ForeignKey("categories.id"))

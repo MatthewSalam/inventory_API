@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from database import SessionLocal, engine
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
 from typing import Annotated
 from passlib.context import CryptContext
@@ -11,7 +11,7 @@ from model_folder.model import Staff
 
 SECRET_KEY = "956d7c6e06bb27e9268b7a1e9e42db8bccc89b04f4738b98cae66778f1a36844"#to generate secretkey, do "./openssl.exe rand -hex 32" after putting the files in your folder
 ALGORITHM = "HS256"
-# ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 app = APIRouter()
 model.Base.metadata.create_all(bind=engine)
@@ -38,11 +38,33 @@ dbDepend = Annotated[Session, Depends(get_db)]
 #     encoded_jwt = jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
 #     return encoded_jwt
 
-def create_token(email:str, user_id:int, expires:timedelta):
-    #process the expire time
-    exp = datetime.now()+expires
-    ex= {'sub':email,'id':user_id,'exp':exp}
-    return jwt.encode(ex,SECRET_KEY,'HS256')
+def create_token(username:str, user_id:int, expires:timedelta) -> str:
+    """
+    Return a JWT with `sub`, `id`, and `exp` (Unix timestamp, UTC).
+
+    Args:
+        email   : User's email → goes in `sub` claim
+        user_id : DB id → goes in custom `id` claim
+        expires : How long the token should stay valid (timedelta)
+
+    Example:
+        token = create_token(
+            email="john@example.com",
+            user_id=42,
+            expires=timedelta(minutes=60)
+        )
+    """
+    now_utc   = datetime.now(timezone.utc)
+    exp_utc   = now_utc + expires
+
+    payload = {
+        "sub": username,
+        "id" : user_id,
+        "exp": int(exp_utc.timestamp())   # numeric date per JWT spec
+    }
+    encoded_jwt = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
 
 async def get_current_user(db: dbDepend ,token: str = Depends(oauth_bearer)):
     credential_exception = HTTPException(status_code=401, detail="UNAUTHORIZED, credentials could not be validated", headers={"WWW-Authenticate": "Bearer"})
@@ -82,5 +104,5 @@ async def login(loginrqst: Annotated[OAuth2PasswordRequestForm, Depends()], db: 
     # staffc = authenticate_user(user, user_pas, db)
     # if not staffc:
     #     raise HTTPException(status_code=401, detail="Validation Error")
-    token = create_token(sta.email, sta.id,timedelta(minutes=30))
+    token = create_token(sta.username, sta.id,timedelta(minutes=30))
     return {'access_token':token,'token_type':'bearer'}

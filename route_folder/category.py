@@ -19,7 +19,6 @@ router = APIRouter()
 dbDepend = Annotated[Session, Depends(get_db)]
 userDepend = Annotated[Staff, Depends(get_current_user)]
 
-
 # --- Pydantic Schemas ---
 class CategoryCreate(BaseModel):
     name: str = Field(..., min_length=3)

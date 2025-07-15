@@ -31,11 +31,12 @@ class OrderDetailBase(BaseModel):
 
 class Order_DetailOut(OrderDetailBase):
     id: int
-    isactive: bool
+    is_active: bool
     date: datetime
 
     model_config = {
-        "from_attributes": True
+        "from_attributes": True,
+        "populate_by_name": True,
     }
 
 # --- FastAPI Router ---

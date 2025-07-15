@@ -40,7 +40,7 @@ class StaffResponse(StaffCreate):
 
 # --- FastAPI Router ---
 @router.post("/register", status_code=status.HTTP_201_CREATED, response_model=StaffResponse, summary="Register new staff member")
-async def create_staff_member(db: dbDepend, staff: StaffCreate, user: userDepend):
+async def create_staff_member(db: dbDepend, staff: StaffCreate): #user: userDepend):
     """Register a new staff member with the system."""
     existing_staff = db.query(Staff).filter((Staff.username == staff.username) | (Staff.email == staff.email)).first()
     if existing_staff:
@@ -54,7 +54,7 @@ async def create_staff_member(db: dbDepend, staff: StaffCreate, user: userDepend
     return new_staff
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=List[StaffResponse], summary="Get all active staff members")
-async def get_active_staff(db: dbDepend, user: userDepend):#
+async def get_active_staff(db: dbDepend): #user: userDepend):
     """Retrieve a list of all active staff members."""
     result = db.query(Staff).filter(Staff.is_active == True).order_by(Staff.id).all()
     return result
