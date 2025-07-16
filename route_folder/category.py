@@ -24,10 +24,8 @@ class CategoryCreate(BaseModel):
     name: str = Field(..., min_length=3)
     description: str = Field(..., min_length=3)
 
-class CategoryResponse(BaseModel):
+class CategoryResponse(CategoryCreate):
     id: int
-    name: str
-    description: str
     is_active: bool
     product_count: int
 
