@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, status
 from sqlalchemy.orm import Session
 from model_folder.model import Order, Staff
 from database import SessionLocal
-from typing import Annotated
+from typing import Annotated, Optional
 from pydantic import BaseModel, Field
 from datetime import datetime
 from util.auth import get_current_user
@@ -22,8 +22,8 @@ userDepend = Annotated[Staff, Depends(get_current_user)]
 
 # --- Pydantic Schemas ---
 class OrderCreate(BaseModel):
-    customer_id: int = Field(None)
-    detail: str = Field(None)
+    customer_id: Optional[int] = None
+    detail: Optional[str] = None
 
 class OrderResponse(OrderCreate):
     id: int
@@ -64,14 +64,15 @@ async def get_order_by_id(db: dbDepend, order_id: Annotated[int, Path(..., gt=0)
     raise HTTPException(status_code=404, detail="Order not found")
 
 @router.put("/{order_id}", status_code=status.HTTP_200_OK, summary="Update order")
-async def update_order(db: dbDepend, order_id: Annotated[int, Path(..., gt=0)], order_req: OrderCreate, user: userDepend):
+async def update_order(db: dbDepend, order_id: Annotated[int, Path(..., gt=0)],    order_req: OrderCreate, user: userDepend):
     """Update order."""
     order = db.query(Order).filter(Order.id == order_id).first()
     if order is None:
         raise HTTPException(status_code=404, detail="Order does not exist")
-    order.detail = order_req.detail
-    order.customer_id = order_req.customer_id
+    for field, value in order_req.model_dump(exclude_unset=True).items():
+        setattr(order, field, value)
     db.commit()
+    db.refresh(order)
     return {"message": "Order updated successfully"}
 
 @router.patch("/{order_id}", status_code=status.HTTP_200_OK, summary="Deactivate orders")

@@ -29,6 +29,11 @@ class UserCreate(BaseModel):
     phone: str = Field(..., min_length=7, max_length=15, example="+1234567890")
     staff_id: int | None = Field(None, example=1)
 
+class UserUpdate(BaseModel):
+    lastname: str 
+    firstname: str 
+    email: EmailStr 
+    phone: str 
 class UserResponse(BaseModel):
     id: int
     lastname: str
@@ -82,18 +87,17 @@ async def get_user_by_id(db: dbDependency, user_id: Annotated[int, Path(gt=0, ex
     return user
 
 @router.put("/{user_id}", status_code=status.HTTP_200_OK, response_model=UserResponse, summary="Update user")
-async def update_user(db: dbDependency, cust_req: UserCreate, user_id: Annotated[int, Path(gt=0)], user: userDepend):
+async def update_user(db: dbDependency, cust_req: UserUpdate, user_id: Annotated[int, Path(gt=0)], user: userDepend):
     """Update user details."""
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
+    user_obj = db.query(User).filter(User.id == user_id).first()
+    if not user_obj:
         raise HTTPException(status_code=404, detail="User not found")
-
-    for field, value in cust_req.model_dump().items():
-        setattr(user, field, value)
-
+    for field, value in cust_req.model_dump(exclude_unset=True).items():
+        setattr(user_obj, field, value)
     db.commit()
-    db.refresh(user)
-    return user
+    db.refresh(user_obj)
+    return user_obj
+
 
 @router.patch("/{user_id}/deactivate", status_code=status.HTTP_200_OK, response_model=UserResponse, summary="Deactivate user")
 async def deactivate_user(db: dbDependency, user_id: Annotated[int, Path(gt=0)], user: userDepend):

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, status
 from sqlalchemy.orm import Session, joinedload
 from model_folder.model import Product, Staff, Supplier
 from database import SessionLocal
-from typing import Annotated, Literal, List
+from typing import Annotated, Literal, List, Optional
 from pydantic import BaseModel, Field
 from util.auth import get_current_user
 
@@ -28,8 +28,14 @@ class ProductCreate(BaseModel):
     cat_id: int = Field(..., example=1)
     supplier_id: int = Field(..., example=1)
 
-class ProductUpdate(ProductCreate):
-    status: Literal["Available", "Unavailable"] = Field(...)
+class ProductUpdate(BaseModel):
+    name: Optional[str] = None
+    desc: Optional[str] = None
+    unit: Optional[int] = None
+    other_details: Optional[str] = None
+    price: Optional[float] = None
+    cat_id: Optional[int] = None
+    supplier_id: Optional[int] = None
 
 class ProductResponse(BaseModel):
     id: int
@@ -93,7 +99,7 @@ async def update_product(db: dbDepend, prod_id: Annotated[int, Path(gt=0)], prod
     prod = db.query(Product).options(joinedload(Product.category)).filter(Product.id == prod_id).first()
     if not prod:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
-    for field, value in prod_req.model_dump().items():
+    for field, value in prod_req.model_dump(exclude_unset=True).items():
         setattr(prod, field, value)
     db.commit()
     db.refresh(prod)

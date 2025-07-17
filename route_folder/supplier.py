@@ -21,7 +21,7 @@ userDepend = Annotated[Staff, Depends(get_current_user)]
 
 # --- Pydantic Schemas ---
 class SupplierBase(BaseModel):
-    name: str
+    name: Optional[str]
     address: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[str] = None
@@ -76,7 +76,7 @@ def update_supplier(supplier_id: int, updated: SupplierBase, db: dbDepend, user:
     supplier = db.query(Supplier).filter(Supplier.id == supplier_id, Supplier.is_active == True).first()
     if not supplier:
         raise HTTPException(status_code=404, detail="Supplier not found")
-    for key, value in updated.dict().items():
+    for key, value in updated.model_dump(exclude_unset=True).items():
         setattr(supplier, key, value)
     db.commit()
     db.refresh(supplier)

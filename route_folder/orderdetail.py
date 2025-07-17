@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from database import SessionLocal
 from typing import Annotated, List, Optional
 from model_folder.model import Order_Detail, Staff
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 from datetime import datetime
 from util.auth import get_current_user
 
@@ -21,8 +21,8 @@ userDepend = Annotated[Staff, Depends(get_current_user)]
 
 # --- Pydantic Schemas ---
 class OrderDetailBase(BaseModel):
-    order_id: int
-    product_id: int
+    order_id: Optional[int] = None
+    product_id: Optional[int] = None
     bill_number: Optional[int] = None
     price: Optional[float] = None
     discount: Optional[float] = None
@@ -32,8 +32,11 @@ class Order_DetailOut(OrderDetailBase):
     id: int
     is_active: bool
     date: datetime
-    total: float
-    payment_name: Optional[str] = None  # display payment name instead of bill_number
+    payment_type: Optional[str] = None  # display payment name instead of bill_number
+
+    @computed_field(return_type=float)
+    def total(self) -> float:
+            return (self.price or 0) * (1 - (self.discount or 0) / 100)
 
     model_config = {
         "from_attributes": True,
@@ -57,13 +60,12 @@ async def get_all_order_details(db: dbDepend, user: userDepend):
     """Get all active order_details."""
     result = db.query(Order_Detail).options(joinedload(Order_Detail.payment)).filter(Order_Detail.is_active == True).all()
     return [
-        Order_DetailOut(
-            **detail.__dict__,
-            total=(detail.price or 0) * (1 - (detail.discount or 0) / 100),
-            payment_name=detail.payment.name if detail.payment else None
-        )
-        for detail in result
-    ]
+    Order_DetailOut.model_validate(detail).model_copy(update={
+        "total": (detail.price or 0) * (1 - (detail.discount or 0) / 100),
+        "payment_type": detail.payment.payment_type if detail.payment else None
+    })
+    for detail in result
+]
 
 
 @router.get("/inactive", status_code=status.HTTP_200_OK, response_model=List[Order_DetailOut], summary="Get all inactive Order details")
@@ -71,44 +73,42 @@ async def get_all_inactive_order_details(db: dbDepend, user: userDepend):
     """Get all inactive order_details."""
     result = db.query(Order_Detail).options(joinedload(Order_Detail.payment)).filter(Order_Detail.is_active == False).all()
     return [
-        Order_DetailOut(
-            **detail.__dict__,
-            total=(detail.price or 0) * (1 - (detail.discount or 0) / 100),
-            payment_name=detail.payment.name if detail.payment else None
-        )
-        for detail in result
-    ]
+    Order_DetailOut.model_validate(detail).model_copy(update={
+        "total": (detail.price or 0) * (1 - (detail.discount or 0) / 100),
+        "payment_type": detail.payment.payment_type if detail.payment else None
+    })
+    for detail in result
+]
 
 
 @router.get("/{detail_id}", status_code=status.HTTP_200_OK, response_model=Order_DetailOut, summary="Get Order detail by id")
 async def get_order_detail(detail_id: int, db: dbDepend, user: userDepend):
     """Get order_detail by id."""
-    detail = db.query(Order_Detail).options(joinedload(Order_Detail.payment)).filter(Order_Detail.id == detail_id, Order_Detail.is_active == True).first()
-    if not detail:
+    result = db.query(Order_Detail).options(joinedload(Order_Detail.payment)).filter(Order_Detail.id == detail_id, Order_Detail.is_active == True).first()
+    if not result:
         raise HTTPException(status_code=404, detail="Order_Detail not found")
-    return Order_DetailOut(
-        **detail.__dict__,
-        total=(detail.price or 0) * (1 - (detail.discount or 0) / 100),
-        payment_name=detail.payment.name if detail.payment else None
-    )
-
+    return [
+    Order_DetailOut.model_validate(detail).model_copy(update={
+        "total": (detail.price or 0) * (1 - (detail.discount or 0) / 100),
+        "payment_type": detail.payment.payment_type if detail.payment else None
+    })
+    for detail in result
+]
 
 @router.put("/{detail_id}", status_code=status.HTTP_200_OK, response_model=Order_DetailOut, summary="Update Order detail")
 async def update_order_detail(detail_id: int, updated: OrderDetailBase, db: dbDepend, user: userDepend):
     """Update order_detail."""
-    detail = db.query(Order_Detail).options(joinedload(Order_Detail.payment)).filter(Order_Detail.id == detail_id, Order_Detail.is_active == True).first()
-    if not detail:
+    result = db.query(Order_Detail).options(joinedload(Order_Detail.payment)).filter(Order_Detail.id == detail_id, Order_Detail.is_active == True).first()
+    if not result:
         raise HTTPException(status_code=404, detail="Order_Detail not found")
-    for key, value in updated.dict().items():
-        setattr(detail, key, value)
+    for key, value in updated.model_dump(exclude_unset=True).items():
+        setattr(result, key, value)
     db.commit()
-    db.refresh(detail)
-    return Order_DetailOut(
-        **detail.__dict__,
-        total=(detail.price or 0) * (1 - (detail.discount or 0) / 100),
-        payment_name=detail.payment.name if detail.payment else None
-    )
-
+    db.refresh(result)
+    return Order_DetailOut.model_validate(result).model_copy(update={
+        "total": (result.price or 0) * (1 - (result.discount or 0) / 100),
+        "payment_type": result.payment.payment_type if result.payment else None
+    })
 
 @router.patch("/{detail_id}/deactivate", status_code=status.HTTP_200_OK, summary="Deactivate order_detail")
 async def deactivate_order_detail(detail_id: int, db: dbDepend, user: userDepend):

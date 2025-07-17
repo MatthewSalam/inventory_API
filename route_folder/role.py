@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import joinedload
-from typing import Annotated, List
+from typing import Annotated, List, Optional
 from pydantic import BaseModel, Field
 from model_folder.model import Role, Staff
 from database import SessionLocal
@@ -21,10 +21,15 @@ dbDepend = Annotated[Session, Depends(get_db)]
 userdepend = Annotated[Staff, Depends(get_current_user)]
 
 # --- Pydantic Schemas ---
-class RoleSchema(BaseModel):
+class RoleCreate(BaseModel):
     name: str = Field(..., min_length=1, example="Manager")
     description: str | None = Field(None, example="Handles staff and operations")
-class RoleResponse(RoleSchema):
+
+class RoleUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+class RoleResponse(RoleCreate):
     id: int
     is_active: bool
     
@@ -36,7 +41,7 @@ class RoleWithCount(RoleResponse):
 
 # --- FastAPI Router ---
 @router.post("/", status_code=status.HTTP_201_CREATED, summary="Create new role")
-async def create_role(db: dbDepend, role: RoleSchema, user: userdepend):
+async def create_role(db: dbDepend, role: RoleCreate, user: userdepend):
     """Add a new role."""
     new_role = Role(**role.model_dump(), is_active=True)
     db.add(new_role)
@@ -78,12 +83,12 @@ async def get_role_by_id(db: dbDepend, role_id: Annotated[int, Path(..., gt=0)],
     return role
 
 @router.put("/{role_id}", status_code=status.HTTP_200_OK,summary="Update role")
-async def update_role(db: dbDepend, role_id: Annotated[int, Path(..., gt=0)], role_req: RoleSchema, user: userdepend):#
+async def update_role(db: dbDepend, role_id: Annotated[int, Path(..., gt=0)], role_req: RoleUpdate, user: userdepend):#
     """Update role info."""
     role = db.query(Role).filter(Role.id == role_id, Role.is_active == True).first()
     if not role:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
-    for field, value in role_req.model_dump().items():
+    for field, value in role_req.model_dump(exclude_unset=True).items():
         setattr(role, field, value)
     db.commit()
     db.refresh(role)

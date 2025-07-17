@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, status
 from sqlalchemy.orm import Session
 from model_folder.model import Payment, Staff
 from database import SessionLocal
-from typing import Annotated, Literal, List
+from typing import Annotated, Literal, List, Optional
 from pydantic import BaseModel, Field
 from util.auth import get_current_user
 
@@ -22,6 +22,10 @@ userDepend = Annotated[Staff, Depends(get_current_user)]
 class PaymentCreate(BaseModel):
     other_details: str = Field(None, min_length=3, example="POS at front desk")
     payment_type: Literal["Cash", "Bank Transfer", "Card"] = Field(None, example="Card")
+
+class PaymentUpdate(BaseModel):
+    other_details: Optional[str] = Field(None, min_length=3, example="POS at front desk")
+    payment_type: Optional[Literal["Cash", "Bank Transfer", "Card"]] = Field(None, example="Card")
 
 class PaymentResponse(BaseModel):
     bill_number: int
@@ -62,13 +66,13 @@ async def get_payment_by_id(db: dbDepend, pay_id: Annotated[int, Path(gt=0)], us
     return pay
 
 @router.put("/{pay_id}", status_code=status.HTTP_200_OK, response_model=PaymentResponse, summary="Update payment type")
-async def update_payment_info(db: dbDepend, pay_id: Annotated[int, Path(gt=0)], pay_req: PaymentCreate, user: userDepend):
+async def update_payment_info(db: dbDepend, pay_id: Annotated[int, Path(gt=0)], pay_req: PaymentUpdate, user: userDepend):
     """Update payment info."""
     pay = db.query(Payment).filter(Payment.bill_number == pay_id).first()
     if not pay:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
-    pay.other_details = pay_req.other_details
-    pay.payment_type = pay_req.payment_type
+    for field, value in pay_req.model_dump(exclude_unset=True).items():
+        setattr(pay, field, value)
     db.commit()
     db.refresh(pay)
     return pay

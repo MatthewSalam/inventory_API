@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, status
 from sqlalchemy.orm import Session
 from model_folder.model import Staff
 from database import SessionLocal
-from typing import Annotated, List
+from typing import Annotated, List, Optional
 from pydantic import BaseModel, Field, EmailStr
 from util.security import hash_password
 from util.auth import get_current_user
@@ -30,6 +30,16 @@ class StaffCreate(BaseModel):
     email: EmailStr = Field(..., example="john.doe@example.com")
     phone: str = Field(..., min_length=7, example="+1234567890")
     role_id: int = Field(..., gt=0, example=1)
+
+class StaffUpdate(BaseModel):
+    lastname: Optional[str] = Field(None, min_length=1, example="Doe")
+    firstname: Optional[str] = Field(None, min_length=1, example="John")
+    username: Optional[str] = Field(None, min_length=2, example="johndoe")
+    password: Optional[str] = Field(None, min_length=5, example="secure123")
+    address: Optional[str] = Field(None, min_length=5, example="123 Main St")
+    email: Optional[EmailStr] = Field(None, example="john.doe@example.com")
+    phone: Optional[str] = Field(None, min_length=7, example="+1234567890")
+    role_id: Optional[int] = Field(None, gt=0, example=1)
 
 class StaffResponse(StaffCreate):
     id: int
@@ -74,15 +84,14 @@ async def get_staff_by_id(db: dbDepend, staff_id: Annotated[int, Path(..., gt=0,
     return staff
 
 @router.put("/{staff_id}", status_code=status.HTTP_200_OK, response_model=StaffResponse, summary="Update staff member")
-async def update_staff(db: dbDepend, staff_id: Annotated[int, Path(..., gt=0)], staff_req: StaffCreate, user: userDepend):#
+async def update_staff(db: dbDepend, staff_id: Annotated[int, Path(..., gt=0)], staff_req: StaffUpdate, user: userDepend):
     """Update a staff member's details."""
     staff = db.query(Staff).filter(Staff.id == staff_id).first()
     if not staff:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Staff member not found")
-
     update_data = staff_req.model_dump(exclude_unset=True)
-    if 'password' in update_data:
-        update_data['password'] = hash_password(update_data['password'])
+    if "password" in update_data:
+        update_data["password"] = hash_password(update_data["password"])
     for field, value in update_data.items():
         setattr(staff, field, value)
     db.commit()

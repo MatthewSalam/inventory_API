@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, status
 from sqlalchemy.orm import Session, joinedload
 from model_folder.model import Category, Staff
 from database import SessionLocal
-from typing import Annotated, List
+from typing import Annotated, List, Optional
 from pydantic import BaseModel, Field
 from util.auth import get_current_user
 
@@ -23,6 +23,10 @@ userDepend = Annotated[Staff, Depends(get_current_user)]
 class CategoryCreate(BaseModel):
     name: str = Field(..., min_length=3)
     description: str = Field(..., min_length=3)
+
+class CategoryUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
 
 class CategoryResponse(CategoryCreate):
     id: int
@@ -93,16 +97,17 @@ async def get_category_by_id(db: dbDepend, cate_id: Annotated[int, Path(gt=0)], 
         product_count=len(category.products)
     )
 
-@router.put("/{cate_id}", status_code=status.HTTP_200_OK, response_model=CategoryResponse, summary="Update category")
-async def update_category(db: dbDepend, cate_id: Annotated[int, Path(..., gt=0)], cate_req: CategoryCreate, user: userDepend):
+@router.put("/{cate_id}", status_code=status.HTTP_200_OK, response_model=CategoryUpdate, summary="Update category")
+async def update_category(db: dbDepend, cate_id: Annotated[int, Path(..., gt=0)],  cate_req: CategoryUpdate, user: userDepend):
     """Update a Category."""
     cat = db.query(Category).filter(Category.id == cate_id).first()
     if not cat:
         raise HTTPException(status_code=404, detail="Category does not exist")
-    cat.name = cate_req.name
-    cat.description = cate_req.description
+    for field, value in cate_req.model_dump(exclude_unset=True).items():
+        setattr(cat, field, value)
     db.commit()
     db.refresh(cat)
+
     return CategoryResponse(
         id=cat.id,
         name=cat.name,
