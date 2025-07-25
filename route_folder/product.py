@@ -93,7 +93,7 @@ async def get_product_by_id(db: dbDepend, prod_id: Annotated[int, Path(gt=0)], u
         "category_name": prod.category.name
     }
 
-@router.put("/{prod_id}", status_code=status.HTTP_200_OK, response_model=ProductResponse, summary="Update product")
+@router.patch("/{prod_id}", status_code=status.HTTP_200_OK, response_model=ProductResponse, summary="Update product")
 async def update_product(db: dbDepend, prod_id: Annotated[int, Path(gt=0)], prod_req: ProductUpdate, user: userDepend):
     """Update product details including status."""
     prod = db.query(Product).options(joinedload(Product.category)).filter(Product.id == prod_id).first()

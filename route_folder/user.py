@@ -86,7 +86,7 @@ async def get_user_by_id(db: dbDependency, user_id: Annotated[int, Path(gt=0, ex
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return user
 
-@router.put("/{user_id}", status_code=status.HTTP_200_OK, response_model=UserResponse, summary="Update user")
+@router.patch("/{user_id}", status_code=status.HTTP_200_OK, response_model=UserResponse, summary="Update user")
 async def update_user(db: dbDependency, cust_req: UserUpdate, user_id: Annotated[int, Path(gt=0)], user: userDepend):
     """Update user details."""
     user_obj = db.query(User).filter(User.id == user_id).first()

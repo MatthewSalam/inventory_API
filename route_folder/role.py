@@ -82,7 +82,7 @@ async def get_role_by_id(db: dbDepend, role_id: Annotated[int, Path(..., gt=0)],
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
     return role
 
-@router.put("/{role_id}", status_code=status.HTTP_200_OK,summary="Update role")
+@router.patch("/{role_id}", status_code=status.HTTP_200_OK,summary="Update role")
 async def update_role(db: dbDepend, role_id: Annotated[int, Path(..., gt=0)], role_req: RoleUpdate, user: userdepend):#
     """Update role info."""
     role = db.query(Role).filter(Role.id == role_id, Role.is_active == True).first()

@@ -97,7 +97,7 @@ async def get_category_by_id(db: dbDepend, cate_id: Annotated[int, Path(gt=0)], 
         product_count=len(category.products)
     )
 
-@router.put("/{cate_id}", status_code=status.HTTP_200_OK, response_model=CategoryUpdate, summary="Update category")
+@router.patch("/{cate_id}", status_code=status.HTTP_200_OK, response_model=CategoryUpdate, summary="Update category")
 async def update_category(db: dbDepend, cate_id: Annotated[int, Path(..., gt=0)],  cate_req: CategoryUpdate, user: userDepend):
     """Update a Category."""
     cat = db.query(Category).filter(Category.id == cate_id).first()

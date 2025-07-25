@@ -83,7 +83,7 @@ async def get_staff_by_id(db: dbDepend, staff_id: Annotated[int, Path(..., gt=0,
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Staff member not found")
     return staff
 
-@router.put("/{staff_id}", status_code=status.HTTP_200_OK, response_model=StaffResponse, summary="Update staff member")
+@router.patch("/{staff_id}", status_code=status.HTTP_200_OK, response_model=StaffResponse, summary="Update staff member")
 async def update_staff(db: dbDepend, staff_id: Annotated[int, Path(..., gt=0)], staff_req: StaffUpdate, user: userDepend):
     """Update a staff member's details."""
     staff = db.query(Staff).filter(Staff.id == staff_id).first()

@@ -95,7 +95,7 @@ async def get_order_detail(detail_id: int, db: dbDepend, user: userDepend):
     for detail in result
 ]
 
-@router.put("/{detail_id}", status_code=status.HTTP_200_OK, response_model=Order_DetailOut, summary="Update Order detail")
+@router.patch("/{detail_id}", status_code=status.HTTP_200_OK, response_model=Order_DetailOut, summary="Update Order detail")
 async def update_order_detail(detail_id: int, updated: OrderDetailBase, db: dbDepend, user: userDepend):
     """Update order_detail."""
     result = db.query(Order_Detail).options(joinedload(Order_Detail.payment)).filter(Order_Detail.id == detail_id, Order_Detail.is_active == True).first()
